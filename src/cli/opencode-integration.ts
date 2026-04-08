@@ -1,0 +1,70 @@
+import { confirm } from '@inquirer/prompts';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+type JsonObject = Record<string, unknown>;
+
+const SESSION_VAULT_MCP = {
+  type: 'local',
+  command: ['npx', '-y', 'session-vault-serve'],
+  enabled: true,
+} as const;
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
+  const configPath = join(projectPath, 'opencode.json');
+  const hasConfig = existsSync(configPath);
+
+  if (!hasConfig) {
+    const createConfig = await confirm({
+      message: 'No opencode.json found. Create one in this project?',
+      default: true,
+    });
+
+    if (!createConfig) {
+      console.log('ℹ️  Skipped OpenCode integration.');
+      return;
+    }
+  }
+
+  let parsed: JsonObject = {};
+
+  if (hasConfig) {
+    const raw = readFileSync(configPath, 'utf-8');
+    const json = JSON.parse(raw) as unknown;
+    if (!isJsonObject(json)) {
+      throw new Error('opencode.json must contain a JSON object at the top level.');
+    }
+    parsed = json;
+  }
+
+  const previousMcp = isJsonObject(parsed.mcp) ? parsed.mcp : {};
+  const previousEntry = previousMcp['session-vault'];
+
+  const nextMcp: JsonObject = {
+    ...previousMcp,
+    'session-vault': SESSION_VAULT_MCP,
+  };
+
+  const merged: JsonObject = {
+    ...parsed,
+    mcp: nextMcp,
+  };
+
+  writeFileSync(configPath, `${JSON.stringify(merged, null, 2)}\n`, 'utf-8');
+
+  if (!hasConfig) {
+    console.log(`✅ Created ${configPath} with session-vault MCP entry.`);
+    return;
+  }
+
+  if (JSON.stringify(previousEntry) === JSON.stringify(SESSION_VAULT_MCP)) {
+    console.log('ℹ️  OpenCode MCP entry already configured for session-vault.');
+    return;
+  }
+
+  console.log('✅ Updated opencode.json with session-vault MCP entry.');
+}

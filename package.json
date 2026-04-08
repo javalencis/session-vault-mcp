@@ -1,0 +1,51 @@
+{
+  "name": "session-vault",
+  "version": "1.0.0",
+  "description": "CLI + MCP server to persist coding sessions and ideas to Notion",
+  "type": "module",
+  "main": "./dist/cli.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "session-vault": "./dist/cli.js",
+    "session-vault-serve": "./dist/serve.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    ".env.example"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "opencode",
+    "mcp",
+    "notion",
+    "session",
+    "memory",
+    "cli"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^7.8.4",
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "@notionhq/client": "^5.4.0",
+    "commander": "^14.0.1",
+    "dotenv": "^17.2.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.7.2",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}
