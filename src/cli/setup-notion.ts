@@ -58,6 +58,7 @@ function buildIdeaProperties(sessionsDataSourceId: string): Record<string, unkno
     [ideasDatabaseSchema.sessionRelation.name]: {
       relation: {
         data_source_id: sessionsDataSourceId,
+        single_property: {},
       },
     },
   };
