@@ -8,7 +8,10 @@ import { SESSION_SOURCE_OPTIONS, ideasDatabaseSchema, sessionsDatabaseSchema } f
 import type { Config } from '../types.js';
 
 type NotionDatabasesApi = {
-  create: (payload: Record<string, unknown>) => Promise<{ id: string }>;
+  create: (payload: Record<string, unknown>) => Promise<{
+    id: string;
+    data_sources?: Array<{ id: string; name: string }>;
+  }>;
 };
 
 type NotionLike = {
@@ -46,7 +49,7 @@ function buildSessionProperties(): Record<string, unknown> {
   };
 }
 
-function buildIdeaProperties(sessionsDatabaseId: string): Record<string, unknown> {
+function buildIdeaProperties(sessionsDataSourceId: string): Record<string, unknown> {
   return {
     [ideasDatabaseSchema.title.name]: { title: {} },
     [ideasDatabaseSchema.description.name]: { rich_text: {} },
@@ -54,7 +57,7 @@ function buildIdeaProperties(sessionsDatabaseId: string): Record<string, unknown
     [ideasDatabaseSchema.project.name]: { rich_text: {} },
     [ideasDatabaseSchema.sessionRelation.name]: {
       relation: {
-        database_id: sessionsDatabaseId,
+        data_source_id: sessionsDataSourceId,
       },
     },
   };
@@ -110,13 +113,21 @@ export async function setupNotionDatabases(options: SetupNotionOptions = {}): Pr
   const sessionsDatabase = await notion.databases.create({
     parent: { type: 'page_id', page_id: parentPageId },
     title: [{ type: 'text', text: { content: 'Sessions' } }],
-    properties: buildSessionProperties(),
+    initial_data_source: {
+      properties: buildSessionProperties(),
+    },
   });
+
+  // The relation needs the data_source_id, not the database_id.
+  // If the API returns data_sources, use the first one; otherwise fall back to database id.
+  const sessionsDataSourceId = sessionsDatabase.data_sources?.[0]?.id ?? sessionsDatabase.id;
 
   const ideasDatabase = await notion.databases.create({
     parent: { type: 'page_id', page_id: parentPageId },
     title: [{ type: 'text', text: { content: 'Ideas' } }],
-    properties: buildIdeaProperties(sessionsDatabase.id),
+    initial_data_source: {
+      properties: buildIdeaProperties(sessionsDataSourceId),
+    },
   });
 
   const configToPersist: Config = {

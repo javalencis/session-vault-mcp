@@ -1,5 +1,6 @@
 import { Client } from '@notionhq/client';
 import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import { DEFAULT_GLOBAL_CONFIG_PATH } from '../config/load.js';
@@ -60,21 +61,37 @@ function trimOrUndefined(value?: string): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function checkOpencodeEntry(cwd: string): boolean {
-  const opencodePath = join(cwd, 'opencode.json');
+function getGlobalOpenCodeConfigPath(): string {
+  return join(homedir(), '.config', 'opencode', 'opencode.json');
+}
 
-  if (!existsSync(opencodePath)) {
+function checkOpencodeEntryInFile(filePath: string): boolean {
+  if (!existsSync(filePath)) {
     return false;
   }
 
   try {
-    const raw = readFileSync(opencodePath, 'utf-8');
+    const raw = readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const mcp = parsed.mcp as Record<string, unknown> | undefined;
     return Boolean(mcp?.['session-vault']);
   } catch {
     return false;
   }
+}
+
+function checkOpencodeEntry(cwd: string): { found: boolean; location?: string } {
+  const projectPath = join(cwd, 'opencode.json');
+  const globalPath = getGlobalOpenCodeConfigPath();
+
+  if (checkOpencodeEntryInFile(globalPath)) {
+    return { found: true, location: globalPath };
+  }
+  if (checkOpencodeEntryInFile(projectPath)) {
+    return { found: true, location: projectPath };
+  }
+
+  return { found: false, location: existsSync(globalPath) ? globalPath : projectPath };
 }
 
 function printCheck(result: CheckStatus): void {
@@ -160,10 +177,11 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Chec
     checks.push({ name: 'Ideas database is accessible', ok: false, detail: 'Missing API key or DB ID' });
   }
 
+  const opencodeResult = checkOpencodeEntry(cwd);
   checks.push({
     name: 'OpenCode config has session-vault MCP entry',
-    ok: checkOpencodeEntry(cwd),
-    detail: join(cwd, 'opencode.json'),
+    ok: opencodeResult.found,
+    detail: opencodeResult.location,
   });
 
   return checks;

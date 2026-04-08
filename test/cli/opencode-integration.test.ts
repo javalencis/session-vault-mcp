@@ -1,20 +1,33 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const confirmMock = vi.fn();
+const selectMock = vi.fn();
 
 vi.mock('@inquirer/prompts', () => ({
   confirm: confirmMock,
+  select: selectMock,
 }));
+
+// Mock homedir so the function looks for global config in a temp dir, not the real user home
+const fakeHome = mkdtempSync(join(tmpdir(), 'session-vault-home-'));
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return {
+    ...actual,
+    homedir: () => fakeHome,
+  };
+});
 
 describe('patchOpenCodeConfig', () => {
   const dirs: string[] = [];
 
   beforeEach(() => {
     confirmMock.mockReset();
+    selectMock.mockReset();
   });
 
   afterEach(() => {
@@ -43,7 +56,7 @@ describe('patchOpenCodeConfig', () => {
     });
   });
 
-  it('preserves existing fields and other mcp entries', async () => {
+  it('preserves existing fields and other mcp entries in project config', async () => {
     const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
     const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
     dirs.push(projectPath);
@@ -85,6 +98,37 @@ describe('patchOpenCodeConfig', () => {
       command: ['npx', '-y', 'session-vault-serve'],
       enabled: true,
     });
+  });
+
+  it('uses global config when it exists and no project config', async () => {
+    const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
+    const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
+    dirs.push(projectPath);
+
+    // Create global opencode config
+    const globalDir = join(fakeHome, '.config', 'opencode');
+    mkdirSync(globalDir, { recursive: true });
+    const globalPath = join(globalDir, 'opencode.json');
+    writeFileSync(
+      globalPath,
+      JSON.stringify({ mcp: { other: { type: 'local', command: ['test'], enabled: true } } }, null, 2),
+      'utf-8',
+    );
+
+    await patchOpenCodeConfig(projectPath);
+
+    const parsed = JSON.parse(readFileSync(globalPath, 'utf-8')) as Record<string, any>;
+
+    expect(parsed.mcp['session-vault']).toEqual({
+      type: 'local',
+      command: ['npx', '-y', 'session-vault-serve'],
+      enabled: true,
+    });
+    // Other entries preserved
+    expect(parsed.mcp.other).toBeDefined();
+
+    // Cleanup
+    rmSync(globalDir, { recursive: true, force: true });
   });
 
   it('does not create config when user declines', async () => {

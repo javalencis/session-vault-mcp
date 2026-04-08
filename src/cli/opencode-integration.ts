@@ -1,5 +1,6 @@
-import { confirm } from '@inquirer/prompts';
+import { confirm, select } from '@inquirer/prompts';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 type JsonObject = Record<string, unknown>;
@@ -14,13 +15,37 @@ function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
-  const configPath = join(projectPath, 'opencode.json');
-  const hasConfig = existsSync(configPath);
+function getGlobalOpenCodeConfigPath(): string {
+  return join(homedir(), '.config', 'opencode', 'opencode.json');
+}
 
-  if (!hasConfig) {
+export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
+  const projectConfigPath = join(projectPath, 'opencode.json');
+  const globalConfigPath = getGlobalOpenCodeConfigPath();
+
+  const hasProjectConfig = existsSync(projectConfigPath);
+  const hasGlobalConfig = existsSync(globalConfigPath);
+
+  let configPath: string;
+
+  if (hasProjectConfig && hasGlobalConfig) {
+    const choice = await select({
+      message: 'Found OpenCode config in both project and global. Which one should I update?',
+      choices: [
+        { name: `Global (${globalConfigPath})`, value: 'global' },
+        { name: `Project (${projectConfigPath})`, value: 'project' },
+      ],
+      default: 'global',
+    });
+    configPath = choice === 'global' ? globalConfigPath : projectConfigPath;
+  } else if (hasGlobalConfig) {
+    configPath = globalConfigPath;
+    console.log(`ℹ️  Found global OpenCode config: ${globalConfigPath}`);
+  } else if (hasProjectConfig) {
+    configPath = projectConfigPath;
+  } else {
     const createConfig = await confirm({
-      message: 'No opencode.json found. Create one in this project?',
+      message: 'No opencode.json found (project or global). Create one in this project?',
       default: true,
     });
 
@@ -28,15 +53,17 @@ export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
       console.log('ℹ️  Skipped OpenCode integration.');
       return;
     }
+    configPath = projectConfigPath;
   }
 
+  const configExists = existsSync(configPath);
   let parsed: JsonObject = {};
 
-  if (hasConfig) {
+  if (configExists) {
     const raw = readFileSync(configPath, 'utf-8');
     const json = JSON.parse(raw) as unknown;
     if (!isJsonObject(json)) {
-      throw new Error('opencode.json must contain a JSON object at the top level.');
+      throw new Error(`${configPath} must contain a JSON object at the top level.`);
     }
     parsed = json;
   }
@@ -56,7 +83,7 @@ export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
 
   writeFileSync(configPath, `${JSON.stringify(merged, null, 2)}\n`, 'utf-8');
 
-  if (!hasConfig) {
+  if (!configExists) {
     console.log(`✅ Created ${configPath} with session-vault MCP entry.`);
     return;
   }
@@ -66,5 +93,5 @@ export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
     return;
   }
 
-  console.log('✅ Updated opencode.json with session-vault MCP entry.');
+  console.log(`✅ Updated ${configPath} with session-vault MCP entry.`);
 }
