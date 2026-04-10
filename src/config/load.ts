@@ -1,7 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import dotenv from 'dotenv';
 
 import type { Config } from '../types.js';
 import { configSchema, globalConfigSchema } from './schema.js';
@@ -39,8 +38,6 @@ function pickNonEmpty(...values: Array<string | undefined>): string | undefined 
 }
 
 export function loadConfig(globalConfigPath: string = DEFAULT_GLOBAL_CONFIG_PATH): Config {
-  dotenv.config();
-
   const globalConfig = readGlobalConfigSync(globalConfigPath);
   const merged = {
     notionApiKey: pickNonEmpty(process.env.NOTION_API_KEY, globalConfig.notionApiKey),

@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ZodError } from 'zod';
@@ -12,9 +13,14 @@ import { registerSearchTool } from './tools/search.js';
 import { registerUpdateSessionTool } from './tools/update-session.js';
 
 function readPackageVersion(): string {
-  const packagePath = join(process.cwd(), 'package.json');
-  const pkg = JSON.parse(readFileSync(packagePath, 'utf-8')) as { version?: string };
-  return pkg.version ?? '0.0.0';
+  try {
+    const currentDir = dirname(fileURLToPath(import.meta.url));
+    const packagePath = join(currentDir, '..', 'package.json');
+    const pkg = JSON.parse(readFileSync(packagePath, 'utf-8')) as { version?: string };
+    return pkg.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
 }
 
 export async function startServer(): Promise<void> {
