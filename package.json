@@ -8,8 +8,8 @@
     "node": ">=20"
   },
   "bin": {
-    "session-vault": "./dist/cli.js",
-    "session-vault-serve": "./dist/serve.js"
+    "session-vault": "dist/cli.js",
+    "session-vault-serve": "dist/serve.js"
   },
   "files": [
     "dist",
