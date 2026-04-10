@@ -1,6 +1,6 @@
 {
   "name": "session-vault",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI + MCP server to persist coding sessions and ideas to Notion",
   "type": "module",
   "main": "./dist/serve.js",

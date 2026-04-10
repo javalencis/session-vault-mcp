@@ -4,7 +4,7 @@ CLI + MCP server to persist coding sessions and ideas to Notion.
 
 `session-vault` is designed to work with OpenCode through MCP so an agent can save useful session history, capture ideas, and search past work without turning your Notion workspace into noise.
 
-> Current release target: **v0.1.0**
+> Current release target: **v0.1.1**
 
 ## What it does
 
@@ -46,7 +46,7 @@ What it does **not** do:
 - it does not ask for your Notion credentials during installation
 - it does not modify your setup without you explicitly running the next steps
 
-If you want to pin the installer to a specific release, replace `main` with a tag like `v0.1.0`.
+If you want to pin the installer to a specific release, replace `main` with a tag like `v0.1.1`.
 
 ## Quick start (from source)
 
@@ -353,8 +353,8 @@ npm publish --access public
 After publishing, create and push the release tag:
 
 ```bash
-git tag -a v0.1.0 -m "Release v0.1.0"
-git push origin v0.1.0
+git tag -a v0.1.1 -m "Release v0.1.1"
+git push origin v0.1.1
 ```
 
 ## Current status
