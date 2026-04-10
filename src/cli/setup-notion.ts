@@ -36,6 +36,11 @@ function buildSessionProperties(): Record<string, unknown> {
     [sessionsDatabaseSchema.title.name]: { title: {} },
     [sessionsDatabaseSchema.sessionKey.name]: { rich_text: {} },
     [sessionsDatabaseSchema.goal.name]: { rich_text: {} },
+    [sessionsDatabaseSchema.status.name]: {
+      select: {
+        options: [{ name: 'active' }, { name: 'closed' }, { name: 'archived' }],
+      },
+    },
     [sessionsDatabaseSchema.summary.name]: { rich_text: {} },
     [sessionsDatabaseSchema.decisions.name]: { rich_text: {} },
     [sessionsDatabaseSchema.nextSteps.name]: { rich_text: {} },

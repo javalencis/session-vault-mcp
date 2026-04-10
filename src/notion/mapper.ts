@@ -59,11 +59,10 @@ function buildSessionKey(input: SessionInput): string {
 }
 
 export function mapSessionInputToNotionProperties(input: SessionInput): NotionProperties {
-  return {
+  const properties: NotionProperties = {
     [sessionsDatabaseSchema.title.name]: toTitle(input.title),
     [sessionsDatabaseSchema.sessionKey.name]: toRichText(buildSessionKey(input)),
     [sessionsDatabaseSchema.goal.name]: toRichText(input.goal),
-    [sessionsDatabaseSchema.status.name]: toSelect(input.status),
     [sessionsDatabaseSchema.summary.name]: toRichText(input.summary),
     [sessionsDatabaseSchema.decisions.name]: toRichText((input.decisions ?? []).join('\n')),
     [sessionsDatabaseSchema.nextSteps.name]: toRichText((input.nextSteps ?? []).join('\n')),
@@ -71,6 +70,12 @@ export function mapSessionInputToNotionProperties(input: SessionInput): NotionPr
     [sessionsDatabaseSchema.project.name]: toRichText(input.project),
     [sessionsDatabaseSchema.source.name]: toSelect(input.source),
   };
+
+  if (input.status) {
+    properties[sessionsDatabaseSchema.status.name] = toSelect(input.status);
+  }
+
+  return properties;
 }
 
 export function mapIdeaInputToNotionProperties(input: IdeaInput): NotionProperties {
