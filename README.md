@@ -24,6 +24,30 @@ CLI + MCP server to persist coding sessions and ideas to Notion.
 - A Notion integration with access to the target page/databases
 - OpenCode installed and configured locally
 
+## Quick install (Linux/macOS)
+
+Once the npm package is published, Linux and macOS users can install it with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/javalencis/session-vault-mcp/main/scripts/install.sh | bash
+```
+
+What this installer does:
+
+- verifies Linux/macOS support
+- verifies `node` and `npm`
+- installs `session-vault` globally from npm
+- verifies that `session-vault` and `session-vault-serve` are available
+- prints the next commands as a short tutorial
+
+What it does **not** do:
+
+- it does not auto-run `session-vault init`
+- it does not ask for your Notion credentials during installation
+- it does not modify your setup without you explicitly running the next steps
+
+If you want to pin the installer to a specific release, replace `main` with a tag like `v0.1.0`.
+
 ## Quick start (from source)
 
 This repository is ready to run locally.
@@ -41,13 +65,21 @@ After `npm link`, these commands become available globally on your machine:
 - `session-vault`
 - `session-vault-serve`
 
-## Planned npm usage
+## npm usage
 
 Once the package is published, the expected flow is:
 
 ```bash
 npx session-vault init
 npx session-vault doctor
+```
+
+If you prefer a global installation instead of `npx`:
+
+```bash
+npm install -g session-vault
+session-vault init
+session-vault doctor
 ```
 
 If you want OpenCode to invoke the published package without `npm link`, use an MCP command like:
@@ -169,7 +201,7 @@ Depending on what exists on your machine, it will update either:
 - project config: `./opencode.json`
 - global config: `~/.config/opencode/opencode.json`
 
-Expected MCP entry for local development (`npm link`):
+Expected MCP entry after installation (`npm link` or global npm install):
 
 ```json
 {
