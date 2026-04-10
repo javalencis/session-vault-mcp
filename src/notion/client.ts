@@ -26,6 +26,10 @@ type NotionSdk = {
     query: (payload: any) => Promise<{ results: any[] }>;
     retrieve: (payload: any) => Promise<any>;
   };
+  dataSources?: {
+    query: (payload: any) => Promise<{ results: any[] }>;
+    retrieve: (payload: any) => Promise<any>;
+  };
   blocks: {
     children: {
       append: (payload: any) => Promise<any>;
@@ -36,6 +40,8 @@ type NotionSdk = {
 export class NotionVaultClient {
   private readonly notion: NotionSdk;
   private readonly config: SessionVaultConfig;
+  private sessionsDataSourceId?: string;
+  private ideasDataSourceId?: string;
 
   constructor(config?: SessionVaultConfig, notionClient?: NotionSdk) {
     this.config = config ?? loadConfig();
@@ -47,14 +53,44 @@ export class NotionVaultClient {
     this.notion = notionClient ?? (new Client({ auth: this.config.notionApiKey }) as unknown as NotionSdk);
   }
 
-  async createSession(input: SessionInput): Promise<SessionRecord> {
-    if (!this.config.notionSessionsDbId) {
-      throw new ConfigError('Missing NOTION_SESSIONS_DB_ID');
+  private async resolveDataSourceId(id: string | undefined, cacheKey: 'sessions' | 'ideas'): Promise<string> {
+    if (!id) {
+      throw new ConfigError(`Missing ${cacheKey === 'sessions' ? 'NOTION_SESSIONS_DB_ID' : 'NOTION_IDEAS_DB_ID'}`);
     }
 
+    if (cacheKey === 'sessions' && this.sessionsDataSourceId) {
+      return this.sessionsDataSourceId;
+    }
+    if (cacheKey === 'ideas' && this.ideasDataSourceId) {
+      return this.ideasDataSourceId;
+    }
+
+    // New API: data source is the real queryable parent. Existing configs may still store database IDs.
+    let resolvedId = id;
+
+    if (this.notion.dataSources?.retrieve) {
+      try {
+        await this.notion.dataSources.retrieve({ data_source_id: id });
+      } catch {
+        const database = await this.notion.databases.retrieve({ database_id: id });
+        resolvedId = database?.data_sources?.[0]?.id ?? id;
+      }
+    }
+
+    if (cacheKey === 'sessions') {
+      this.sessionsDataSourceId = resolvedId;
+    } else {
+      this.ideasDataSourceId = resolvedId;
+    }
+
+    return resolvedId;
+  }
+
+  async createSession(input: SessionInput): Promise<SessionRecord> {
     try {
+      const dataSourceId = await this.resolveDataSourceId(this.config.notionSessionsDbId, 'sessions');
       const created = await this.notion.pages.create({
-        parent: { database_id: this.config.notionSessionsDbId },
+        parent: { data_source_id: dataSourceId },
         properties: mapSessionInputToNotionProperties(input),
       });
       return mapNotionPageToSessionRecord(created);
@@ -101,13 +137,12 @@ export class NotionVaultClient {
   }
 
   async querySessionByKey(sessionKey: string): Promise<SessionRecord | null> {
-    if (!this.config.notionSessionsDbId) {
-      throw new ConfigError('Missing NOTION_SESSIONS_DB_ID');
-    }
-
     try {
-      const response = await this.notion.databases.query({
-        database_id: this.config.notionSessionsDbId,
+      const dataSourceId = await this.resolveDataSourceId(this.config.notionSessionsDbId, 'sessions');
+      const queryApi = this.notion.dataSources?.query ?? this.notion.databases.query;
+      const idKey = this.notion.dataSources?.query ? 'data_source_id' : 'database_id';
+      const response = await queryApi({
+        [idKey]: dataSourceId,
         filter: {
           property: sessionsDatabaseSchema.sessionKey.name,
           rich_text: { equals: sessionKey },
@@ -126,15 +161,14 @@ export class NotionVaultClient {
   }
 
   async queryRecentSessions(hours: number): Promise<SessionRecord[]> {
-    if (!this.config.notionSessionsDbId) {
-      throw new ConfigError('Missing NOTION_SESSIONS_DB_ID');
-    }
-
     const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
     try {
-      const response = await this.notion.databases.query({
-        database_id: this.config.notionSessionsDbId,
+      const dataSourceId = await this.resolveDataSourceId(this.config.notionSessionsDbId, 'sessions');
+      const queryApi = this.notion.dataSources?.query ?? this.notion.databases.query;
+      const idKey = this.notion.dataSources?.query ? 'data_source_id' : 'database_id';
+      const response = await queryApi({
+        [idKey]: dataSourceId,
         filter: {
           timestamp: 'created_time',
           created_time: { on_or_after: since },
@@ -182,7 +216,10 @@ export class NotionVaultClient {
     }
 
     try {
-      const database = (await this.notion.databases.retrieve({ database_id: databaseId })) as {
+      const dataSourceId = await this.resolveDataSourceId(databaseId, label === 'Sessions' ? 'sessions' : 'ideas');
+      const database = (this.notion.dataSources?.retrieve
+        ? await this.notion.dataSources.retrieve({ data_source_id: dataSourceId })
+        : await this.notion.databases.retrieve({ database_id: databaseId })) as {
         properties?: Record<string, { type?: string }>;
       };
 
@@ -212,13 +249,10 @@ export class NotionVaultClient {
   }
 
   async createIdea(input: IdeaInput): Promise<IdeaRecord> {
-    if (!this.config.notionIdeasDbId) {
-      throw new ConfigError('Missing NOTION_IDEAS_DB_ID');
-    }
-
     try {
+      const dataSourceId = await this.resolveDataSourceId(this.config.notionIdeasDbId, 'ideas');
       const created = await this.notion.pages.create({
-        parent: { database_id: this.config.notionIdeasDbId },
+        parent: { data_source_id: dataSourceId },
         properties: mapIdeaInputToNotionProperties(input),
       });
       return mapNotionPageToIdeaRecord(created);
@@ -238,11 +272,11 @@ export class NotionVaultClient {
       const results: Array<SessionRecord | IdeaRecord> = [];
 
       if (parsed.type === 'session' || parsed.type === 'all') {
-        if (!this.config.notionSessionsDbId) {
-          throw new ConfigError('Missing NOTION_SESSIONS_DB_ID');
-        }
-        const sessions = await this.notion.databases.query({
-          database_id: this.config.notionSessionsDbId,
+        const dataSourceId = await this.resolveDataSourceId(this.config.notionSessionsDbId, 'sessions');
+        const queryApi = this.notion.dataSources?.query ?? this.notion.databases.query;
+        const idKey = this.notion.dataSources?.query ? 'data_source_id' : 'database_id';
+        const sessions = await queryApi({
+          [idKey]: dataSourceId,
           filter: {
             or: [
               { property: sessionsDatabaseSchema.title.name, title: { contains: parsed.query } },
@@ -255,11 +289,11 @@ export class NotionVaultClient {
       }
 
       if (parsed.type === 'idea' || parsed.type === 'all') {
-        if (!this.config.notionIdeasDbId) {
-          throw new ConfigError('Missing NOTION_IDEAS_DB_ID');
-        }
-        const ideas = await this.notion.databases.query({
-          database_id: this.config.notionIdeasDbId,
+        const dataSourceId = await this.resolveDataSourceId(this.config.notionIdeasDbId, 'ideas');
+        const queryApi = this.notion.dataSources?.query ?? this.notion.databases.query;
+        const idKey = this.notion.dataSources?.query ? 'data_source_id' : 'database_id';
+        const ideas = await queryApi({
+          [idKey]: dataSourceId,
           filter: {
             or: [
               { property: ideasDatabaseSchema.title.name, title: { contains: parsed.query } },
