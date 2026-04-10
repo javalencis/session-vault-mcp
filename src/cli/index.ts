@@ -7,7 +7,7 @@ import { runSetupNotionCommand } from './setup-notion.js';
 export const program = new Command()
   .name('session-vault')
   .description('Capture and query coding sessions in Notion via CLI and MCP')
-  .version('1.0.0');
+  .version('0.1.0');
 
 program
   .command('init')

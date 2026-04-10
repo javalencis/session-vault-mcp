@@ -1,9 +1,9 @@
 {
   "name": "session-vault",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "CLI + MCP server to persist coding sessions and ideas to Notion",
   "type": "module",
-  "main": "./dist/cli.js",
+  "main": "./dist/serve.js",
   "engines": {
     "node": ">=20"
   },
@@ -30,16 +30,28 @@
     "notion",
     "session",
     "memory",
-    "cli"
+    "cli",
+    "developer-tools",
+    "knowledge-management"
   ],
-  "author": "",
+  "author": "Jonathan Valencia <111547711+javalencis@users.noreply.github.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/javalencis/session-vault-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/javalencis/session-vault-mcp/issues"
+  },
+  "homepage": "https://github.com/javalencis/session-vault-mcp#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@inquirer/prompts": "^7.8.4",
     "@modelcontextprotocol/sdk": "^1.17.5",
     "@notionhq/client": "^5.4.0",
     "commander": "^14.0.1",
-    "dotenv": "^17.2.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {

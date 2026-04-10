@@ -4,6 +4,8 @@ CLI + MCP server to persist coding sessions and ideas to Notion.
 
 `session-vault` is designed to work with OpenCode through MCP so an agent can save useful session history, capture ideas, and search past work without turning your Notion workspace into noise.
 
+> Current release target: **v0.1.0**
+
 ## What it does
 
 - Creates and manages two Notion databases: **Sessions** and **Ideas**
@@ -38,6 +40,29 @@ After `npm link`, these commands become available globally on your machine:
 
 - `session-vault`
 - `session-vault-serve`
+
+## Planned npm usage
+
+Once the package is published, the expected flow is:
+
+```bash
+npx session-vault init
+npx session-vault doctor
+```
+
+If you want OpenCode to invoke the published package without `npm link`, use an MCP command like:
+
+```json
+{
+  "mcp": {
+    "session-vault": {
+      "type": "local",
+      "command": ["npx", "-y", "session-vault-serve"],
+      "enabled": true
+    }
+  }
+}
+```
 
 ## Notion setup
 
@@ -144,7 +169,7 @@ Depending on what exists on your machine, it will update either:
 - project config: `./opencode.json`
 - global config: `~/.config/opencode/opencode.json`
 
-Expected MCP entry:
+Expected MCP entry for local development (`npm link`):
 
 ```json
 {
@@ -278,6 +303,27 @@ session-vault-serve
 ```
 
 This process waits on stdio because it is meant to be started by an MCP client such as OpenCode.
+
+## Publishing checklist
+
+Before publishing to npm:
+
+1. Ensure `package.json` version is correct
+2. Ensure the repo is clean and pushed
+3. Run `npm pack` and verify package contents
+4. Login to npm with `npm login`
+5. Publish with:
+
+```bash
+npm publish --access public
+```
+
+After publishing, create and push the release tag:
+
+```bash
+git tag -a v0.1.0 -m "Release v0.1.0"
+git push origin v0.1.0
+```
 
 ## Current status
 
