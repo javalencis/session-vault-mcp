@@ -76,7 +76,7 @@ npm view "$PACKAGE_NAME" version >/dev/null 2>&1
 
 CURRENT_STEP="npm-install-global"
 say "➡️  Installing ${PACKAGE_NAME} globally..."
-npm install --global "$PACKAGE_NAME"
+npm install --global "${PACKAGE_NAME}@latest"
 
 CURRENT_STEP="verify-path:session-vault"
 if ! command -v session-vault >/dev/null 2>&1; then
