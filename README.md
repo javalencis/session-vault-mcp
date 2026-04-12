@@ -194,10 +194,10 @@ session-vault init
 ```
 
 If `init` fails before database prompts:
-
-- `notion.missing_key.NOTION_API_KEY`: set `NOTION_API_KEY` in env or `~/.config/session-vault/config.json`
-- `notion.auth_permission.*`: integration token exists but lacks permissions/share access
-- `notion.transport.fetch_failed`: network/proxy/TLS issue. Verify VPN/proxy settings and upgrade Node if `<22.21.0`
+ 
+ - `notion.missing_key.NOTION_API_KEY`: set `NOTION_API_KEY` in env or `~/.config/session-vault/config.json`
+ - `notion.auth_permission.*`: integration token exists but lacks permissions/share access
+ - `notion.transport.fetch_failed`: network/proxy/TLS issue. If on a corporate VPN/proxy (especially macOS), run `NODE_USE_SYSTEM_CA=1 session-vault init` to bypass TLS interception. OpenCode MCP will also be automatically configured with this flag.
 
 After fixing the issue, run `session-vault doctor`.
 
