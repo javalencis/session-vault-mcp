@@ -109,8 +109,9 @@ describe('runNotionValidation', () => {
       code: 'notion.transport.fetch_failed',
       summary: 'Notion request failed due to network or transport issues.',
       troubleshooting: [
-        'Verify network access, VPN/proxy settings, and TLS interception rules.',
-        'If using Node <22.21.0, upgrade Node and retry.',
+        'Run NODE_USE_SYSTEM_CA=1 session-vault init to bypass TLS/VPN interception.',
+        'Verify network access and DNS reachability to api.notion.com.',
+        'If using Node <22.21.0 with a proxy, upgrade Node and retry.',
         'Run session-vault doctor to re-check connectivity diagnostics.',
       ],
     });

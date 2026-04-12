@@ -10,6 +10,9 @@ type JsonObject = Record<string, unknown>;
 type SessionVaultMcpConfig = {
   type: 'local';
   command: string[];
+  env: {
+    NODE_USE_SYSTEM_CA: '1';
+  };
   enabled: true;
 };
 
@@ -33,6 +36,9 @@ export async function patchOpenCodeConfig(
   const sessionVaultMcp: SessionVaultMcpConfig = {
     type: 'local',
     command: expectedMcpCommandForMode(installMode),
+    env: {
+      NODE_USE_SYSTEM_CA: '1',
+    },
     enabled: true,
   };
 

@@ -52,6 +52,9 @@ describe('patchOpenCodeConfig', () => {
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
       command: ['session-vault-serve'],
+      env: {
+        NODE_USE_SYSTEM_CA: '1',
+      },
       enabled: true,
     });
   });
@@ -72,6 +75,9 @@ describe('patchOpenCodeConfig', () => {
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
       command: ['npx', '-y', 'session-vault-serve'],
+      env: {
+        NODE_USE_SYSTEM_CA: '1',
+      },
       enabled: true,
     });
   });
@@ -116,6 +122,9 @@ describe('patchOpenCodeConfig', () => {
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
       command: ['session-vault-serve'],
+      env: {
+        NODE_USE_SYSTEM_CA: '1',
+      },
       enabled: true,
     });
   });
@@ -142,6 +151,9 @@ describe('patchOpenCodeConfig', () => {
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
       command: ['session-vault-serve'],
+      env: {
+        NODE_USE_SYSTEM_CA: '1',
+      },
       enabled: true,
     });
     // Other entries preserved

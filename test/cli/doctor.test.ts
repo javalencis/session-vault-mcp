@@ -265,6 +265,6 @@ describe('runDoctorChecks', () => {
     expect(transportApiCheck?.level).toBe('fail');
     expect(transportApiCheck?.code).toBe('notion.transport.fetch_failed');
     expect(transportApiCheck?.action).toContain('Node <22.21.0');
-    expect(transportApiCheck?.action).toContain('VPN/proxy');
+    expect(transportApiCheck?.action).toContain('TLS/VPN interception');
   });
 });
