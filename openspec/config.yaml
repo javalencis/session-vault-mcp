@@ -1,0 +1,62 @@
+schema: spec-driven
+
+context: |
+  Tech stack: TypeScript (Node 20+, ESM), CLI + MCP server, Notion SDK
+  Architecture: src/{cli,mcp,notion,config,scoring} with focused modules
+  Testing: Vitest (`npm test`), unit-heavy test suite under test/
+  Style: TypeScript strict mode; typecheck via `tsc --noEmit`
+
+strict_tdd: true
+
+testing:
+  strict_tdd_mode: enabled
+  detected: "2026-04-10"
+  test_runner:
+    framework: vitest
+    command: npm test
+  layers:
+    unit:
+      available: true
+      tool: vitest
+    integration:
+      available: false
+      tool: "—"
+    e2e:
+      available: false
+      tool: "—"
+  coverage:
+    available: false
+    command: "—"
+  quality_tools:
+    linter:
+      available: true
+      command: npm run lint
+    type_checker:
+      available: true
+      command: npm run typecheck
+    formatter:
+      available: false
+      command: "—"
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Identify affected modules/packages
+  specs:
+    - Use Given/When/Then format for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document architecture decisions with rationale
+  tasks:
+    - Group tasks by phase (infrastructure, implementation, testing)
+    - Use hierarchical numbering (1.1, 1.2, etc.)
+    - Keep tasks small enough to complete in one session
+  apply:
+    - Follow existing code patterns and conventions
+    - Load relevant coding skills for the project stack
+  verify:
+    - Run tests if test infrastructure exists
+    - Compare implementation against every spec scenario
+  archive:
+    - Warn before merging destructive deltas (large removals)
