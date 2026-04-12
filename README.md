@@ -4,8 +4,6 @@ CLI + MCP server to persist coding sessions and ideas to Notion.
 
 `session-vault` is designed to work with OpenCode through MCP so an agent can save useful session history, capture ideas, and search past work without turning your Notion workspace into noise.
 
-> Current release target: **v0.1.2**
-
 ## What it does
 
 - Creates and manages two Notion databases: **Sessions** and **Ideas**
