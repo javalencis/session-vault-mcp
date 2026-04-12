@@ -24,9 +24,11 @@ CLI + MCP server to persist coding sessions and ideas to Notion.
 - A Notion integration with access to the target page/databases
 - OpenCode installed and configured locally
 
-## Quick install (Linux/macOS)
+## Install
 
-Once the npm package is published, Linux and macOS users can install it with a single command:
+### Installer script (Linux/macOS)
+
+Linux and macOS users can install with one command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/javalencis/session-vault-mcp/main/scripts/install.sh | bash
@@ -38,6 +40,7 @@ What this installer does:
 - verifies `node` and `npm`
 - installs `session-vault` globally from npm
 - verifies that `session-vault` and `session-vault-serve` are available
+- prints failing-step diagnostics (OS, shell, Node/npm versions, npm global prefix)
 - prints the next commands as a short tutorial
 
 What it does **not** do:
@@ -48,9 +51,52 @@ What it does **not** do:
 
 If you want to pin the installer to a specific release, replace `main` with a tag like `v0.1.1`.
 
-## Quick start (from source)
+### npm global install (direct binary mode)
 
-This repository is ready to run locally.
+```bash
+npm install -g session-vault
+session-vault init
+session-vault doctor
+```
+
+OpenCode MCP command for global install:
+
+```json
+{
+  "mcp": {
+    "session-vault": {
+      "type": "local",
+      "command": ["session-vault-serve"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### npm npx usage (npx mode)
+
+```bash
+npx session-vault init
+npx session-vault doctor
+```
+
+OpenCode MCP command for npx usage:
+
+```json
+{
+  "mcp": {
+    "session-vault": {
+      "type": "local",
+      "command": ["npx", "-y", "session-vault-serve"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### From source (linked/source mode)
+
+This repository is ready to run locally:
 
 ```bash
 git clone https://github.com/javalencis/session-vault-mcp.git
@@ -65,36 +111,39 @@ After `npm link`, these commands become available globally on your machine:
 - `session-vault`
 - `session-vault-serve`
 
-## npm usage
-
-Once the package is published, the expected flow is:
-
-```bash
-npx session-vault init
-npx session-vault doctor
-```
-
-If you prefer a global installation instead of `npx`:
-
-```bash
-npm install -g session-vault
-session-vault init
-session-vault doctor
-```
-
-If you want OpenCode to invoke the published package without `npm link`, use an MCP command like:
+When linked from source, use the same direct-binary MCP command as global mode:
 
 ```json
 {
   "mcp": {
     "session-vault": {
       "type": "local",
-      "command": ["npx", "-y", "session-vault-serve"],
+      "command": ["session-vault-serve"],
       "enabled": true
     }
   }
 }
 ```
+
+## Configure
+
+Use the configure commands that match how you installed the CLI:
+
+- global install or linked source mode:
+
+```bash
+session-vault init
+session-vault doctor
+```
+
+- npx mode:
+
+```bash
+npx session-vault init
+npx session-vault doctor
+```
+
+If configuration fails, run the matching `doctor` command for your mode to see deterministic pass/warn/fail diagnostics and next-step guidance.
 
 ## Notion setup
 
@@ -146,6 +195,14 @@ Run:
 session-vault init
 ```
 
+If `init` fails before database prompts:
+
+- `notion.missing_key.NOTION_API_KEY`: set `NOTION_API_KEY` in env or `~/.config/session-vault/config.json`
+- `notion.auth_permission.*`: integration token exists but lacks permissions/share access
+- `notion.transport.fetch_failed`: network/proxy/TLS issue. Verify VPN/proxy settings and upgrade Node if `<22.21.0`
+
+After fixing the issue, run `session-vault doctor`.
+
 ### `session-vault doctor`
 
 Runs health checks for:
@@ -162,6 +219,14 @@ Run:
 ```bash
 session-vault doctor
 ```
+
+Doctor now reports deterministic `pass` / `warn` / `fail` checks including:
+
+- install-mode MCP command mismatch (`mcp.command.mismatch`)
+- invalid MCP command shape (`mcp.command.invalid_shape`)
+- missing API key / DB IDs without network calls (`notion.missing_key.*`)
+- auth-permission failures (`notion.auth_permission.*`)
+- transport failures with network/proxy guidance (`notion.transport.fetch_failed`)
 
 ### `session-vault setup-notion`
 

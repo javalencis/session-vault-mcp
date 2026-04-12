@@ -36,13 +36,33 @@ describe('patchOpenCodeConfig', () => {
     }
   });
 
-  it('creates opencode.json when missing and user accepts', async () => {
+  it('creates opencode.json with direct binary for global install mode', async () => {
     const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
     const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
     dirs.push(projectPath);
     confirmMock.mockResolvedValue(true);
 
-    await patchOpenCodeConfig(projectPath);
+    await patchOpenCodeConfig(projectPath, { installMode: 'global' });
+
+    const parsed = JSON.parse(readFileSync(join(projectPath, 'opencode.json'), 'utf-8')) as Record<
+      string,
+      any
+    >;
+
+    expect(parsed.mcp['session-vault']).toEqual({
+      type: 'local',
+      command: ['session-vault-serve'],
+      enabled: true,
+    });
+  });
+
+  it('writes npx MCP command for npx install mode', async () => {
+    const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
+    const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
+    dirs.push(projectPath);
+    confirmMock.mockResolvedValue(true);
+
+    await patchOpenCodeConfig(projectPath, { installMode: 'npx' });
 
     const parsed = JSON.parse(readFileSync(join(projectPath, 'opencode.json'), 'utf-8')) as Record<
       string,
@@ -80,7 +100,7 @@ describe('patchOpenCodeConfig', () => {
       'utf-8',
     );
 
-    await patchOpenCodeConfig(projectPath);
+    await patchOpenCodeConfig(projectPath, { installMode: 'global' });
 
     const parsed = JSON.parse(readFileSync(join(projectPath, 'opencode.json'), 'utf-8')) as Record<
       string,
@@ -95,7 +115,7 @@ describe('patchOpenCodeConfig', () => {
     });
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
-      command: ['npx', '-y', 'session-vault-serve'],
+      command: ['session-vault-serve'],
       enabled: true,
     });
   });
@@ -115,13 +135,13 @@ describe('patchOpenCodeConfig', () => {
       'utf-8',
     );
 
-    await patchOpenCodeConfig(projectPath);
+    await patchOpenCodeConfig(projectPath, { installMode: 'global' });
 
     const parsed = JSON.parse(readFileSync(globalPath, 'utf-8')) as Record<string, any>;
 
     expect(parsed.mcp['session-vault']).toEqual({
       type: 'local',
-      command: ['npx', '-y', 'session-vault-serve'],
+      command: ['session-vault-serve'],
       enabled: true,
     });
     // Other entries preserved
@@ -131,13 +151,42 @@ describe('patchOpenCodeConfig', () => {
     rmSync(globalDir, { recursive: true, force: true });
   });
 
+  it('keeps config-target selection explicit when both global and project exist', async () => {
+    const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
+    const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
+    dirs.push(projectPath);
+
+    writeFileSync(join(projectPath, 'opencode.json'), JSON.stringify({ mcp: {} }, null, 2), 'utf-8');
+
+    const globalDir = join(fakeHome, '.config', 'opencode');
+    mkdirSync(globalDir, { recursive: true });
+    const globalPath = join(globalDir, 'opencode.json');
+    writeFileSync(globalPath, JSON.stringify({ mcp: {} }, null, 2), 'utf-8');
+
+    selectMock.mockResolvedValue('project');
+
+    await patchOpenCodeConfig(projectPath, { installMode: 'global' });
+
+    const projectParsed = JSON.parse(readFileSync(join(projectPath, 'opencode.json'), 'utf-8')) as Record<
+      string,
+      any
+    >;
+    const globalParsed = JSON.parse(readFileSync(globalPath, 'utf-8')) as Record<string, any>;
+
+    expect(selectMock).toHaveBeenCalledOnce();
+    expect(projectParsed.mcp['session-vault'].command).toEqual(['session-vault-serve']);
+    expect(globalParsed.mcp['session-vault']).toBeUndefined();
+
+    rmSync(globalDir, { recursive: true, force: true });
+  });
+
   it('does not create config when user declines', async () => {
     const { patchOpenCodeConfig } = await import('../../src/cli/opencode-integration.js');
     const projectPath = mkdtempSync(join(tmpdir(), 'session-vault-opencode-'));
     dirs.push(projectPath);
     confirmMock.mockResolvedValue(false);
 
-    await patchOpenCodeConfig(projectPath);
+    await patchOpenCodeConfig(projectPath, { installMode: 'global' });
 
     expect(() => readFileSync(join(projectPath, 'opencode.json'), 'utf-8')).toThrow();
   });

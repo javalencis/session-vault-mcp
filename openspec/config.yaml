@@ -10,7 +10,7 @@ strict_tdd: true
 
 testing:
   strict_tdd_mode: enabled
-  detected: "2026-04-10"
+  detected: "2026-04-12"
   test_runner:
     framework: vitest
     command: npm test

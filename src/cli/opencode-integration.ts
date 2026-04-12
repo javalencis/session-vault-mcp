@@ -3,13 +3,19 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { detectInstallModeFromArgv, expectedMcpCommandForMode, type InstallMode } from './install-mode.js';
+
 type JsonObject = Record<string, unknown>;
 
-const SESSION_VAULT_MCP = {
-  type: 'local',
-  command: ['npx', '-y', 'session-vault-serve'],
-  enabled: true,
-} as const;
+type SessionVaultMcpConfig = {
+  type: 'local';
+  command: string[];
+  enabled: true;
+};
+
+type PatchOpenCodeConfigOptions = {
+  installMode?: InstallMode;
+};
 
 function isJsonObject(value: unknown): value is JsonObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -19,7 +25,17 @@ function getGlobalOpenCodeConfigPath(): string {
   return join(homedir(), '.config', 'opencode', 'opencode.json');
 }
 
-export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
+export async function patchOpenCodeConfig(
+  projectPath: string,
+  options: PatchOpenCodeConfigOptions = {},
+): Promise<void> {
+  const installMode = options.installMode ?? detectInstallModeFromArgv(process.argv);
+  const sessionVaultMcp: SessionVaultMcpConfig = {
+    type: 'local',
+    command: expectedMcpCommandForMode(installMode),
+    enabled: true,
+  };
+
   const projectConfigPath = join(projectPath, 'opencode.json');
   const globalConfigPath = getGlobalOpenCodeConfigPath();
 
@@ -73,7 +89,7 @@ export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
 
   const nextMcp: JsonObject = {
     ...previousMcp,
-    'session-vault': SESSION_VAULT_MCP,
+    'session-vault': sessionVaultMcp,
   };
 
   const merged: JsonObject = {
@@ -88,7 +104,7 @@ export async function patchOpenCodeConfig(projectPath: string): Promise<void> {
     return;
   }
 
-  if (JSON.stringify(previousEntry) === JSON.stringify(SESSION_VAULT_MCP)) {
+  if (JSON.stringify(previousEntry) === JSON.stringify(sessionVaultMcp)) {
     console.log('ℹ️  OpenCode MCP entry already configured for session-vault.');
     return;
   }

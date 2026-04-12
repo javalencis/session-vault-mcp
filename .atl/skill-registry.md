@@ -1,6 +1,6 @@
 # Skill Registry
 
-Generated: 2026-04-10
+Generated: 2026-04-12
 Project: session-vault
 
 ## Sources Scanned

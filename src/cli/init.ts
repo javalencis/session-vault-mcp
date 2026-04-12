@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 import type { Config } from '../types.js';
+import { runNotionValidation, type NotionDiagnostic } from '../notion/diagnostics.js';
 import { patchOpenCodeConfig } from './opencode-integration.js';
 import { setupNotionDatabases } from './setup-notion.js';
 
@@ -18,6 +19,12 @@ type NotionClientForInit = {
   users: NotionUsersApi;
 };
 
+type RunInitCommandOptions = {
+  cwd?: string;
+  globalConfigPath?: string;
+  notionFactory?: (apiKey: string) => NotionClientForInit;
+};
+
 function notionClientFactory(apiKey: string): NotionClientForInit {
   return new Client({ auth: apiKey }) as unknown as NotionClientForInit;
 }
@@ -26,9 +33,9 @@ function ensureDir(path: string): void {
   mkdirSync(path, { recursive: true });
 }
 
-function writeGlobalConfig(config: Config): void {
-  ensureDir(join(homedir(), '.config', 'session-vault'));
-  writeFileSync(GLOBAL_CONFIG_PATH, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
+function writeGlobalConfig(configPath: string, config: Config): void {
+  ensureDir(join(configPath, '..'));
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, 'utf-8');
 }
 
 function upsertEnvVar(content: string, key: string, value: string): string {
@@ -46,8 +53,8 @@ function upsertEnvVar(content: string, key: string, value: string): string {
   return `${content.trimEnd()}\n${line}\n`;
 }
 
-function writeProjectEnv(apiKey: string): void {
-  const envPath = join(process.cwd(), '.env');
+function writeProjectEnv(cwd: string, apiKey: string): void {
+  const envPath = join(cwd, '.env');
   const existing = existsSync(envPath) ? readFileSync(envPath, 'utf-8') : '';
   const next = upsertEnvVar(existing, 'NOTION_API_KEY', apiKey);
   writeFileSync(envPath, next, 'utf-8');
@@ -58,7 +65,26 @@ async function validateNotionApiKey(apiKey: string, notionFactory = notionClient
   await notion.users.me();
 }
 
-export async function runInitCommand(): Promise<void> {
+function formatDiagnosticForInit(diagnostic: NotionDiagnostic): string {
+  const lines = [`[${diagnostic.code}] ${diagnostic.summary}`];
+
+  if (diagnostic.detail) {
+    lines.push(`Detail: ${diagnostic.detail}`);
+  }
+
+  lines.push('Troubleshooting:');
+  for (const step of diagnostic.troubleshooting) {
+    lines.push(`- ${step}`);
+  }
+
+  return lines.join('\n');
+}
+
+export async function runInitCommand(options: RunInitCommandOptions = {}): Promise<void> {
+  const cwd = options.cwd ?? process.cwd();
+  const globalConfigPath = options.globalConfigPath ?? GLOBAL_CONFIG_PATH;
+  const notionFactory = options.notionFactory ?? notionClientFactory;
+
   console.log('Welcome to session-vault.');
   console.log('This wizard configures Notion databases and local integration for capturing sessions.\n');
 
@@ -68,11 +94,15 @@ export async function runInitCommand(): Promise<void> {
     validate: (value) => (value.trim().length > 0 ? true : 'NOTION_API_KEY is required.'),
   });
 
-  try {
-    await validateNotionApiKey(apiKey.trim());
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : 'Unknown Notion API error';
-    throw new Error(`Unable to validate NOTION_API_KEY. Please verify integration permissions. Details: ${reason}`);
+  const trimmedApiKey = apiKey.trim();
+  const validation = await runNotionValidation({
+    target: 'api-key',
+    requiredValue: trimmedApiKey,
+    operation: () => validateNotionApiKey(trimmedApiKey, notionFactory),
+  });
+
+  if (!validation.ok) {
+    throw new Error(formatDiagnosticForInit(validation.diagnostic));
   }
 
   const databaseMode = await select({
@@ -96,7 +126,7 @@ export async function runInitCommand(): Promise<void> {
 
     const created = await setupNotionDatabases({
       parentPageId: notionParentPageId,
-      apiKey,
+      apiKey: trimmedApiKey,
     });
     notionSessionsDbId = created.sessionsDatabaseId;
     notionIdeasDbId = created.ideasDatabaseId;
@@ -112,14 +142,14 @@ export async function runInitCommand(): Promise<void> {
   }
 
   const globalConfig: Config = {
-    notionApiKey: apiKey,
+    notionApiKey: trimmedApiKey,
     notionSessionsDbId,
     notionIdeasDbId,
     notionParentPageId,
   };
 
-  writeGlobalConfig(globalConfig);
-  writeProjectEnv(apiKey);
+  writeGlobalConfig(globalConfigPath, globalConfig);
+  writeProjectEnv(cwd, trimmedApiKey);
 
   const configureOpenCode = await confirm({
     message: 'Configure OpenCode integration?',
@@ -127,11 +157,11 @@ export async function runInitCommand(): Promise<void> {
   });
 
   if (configureOpenCode) {
-    await patchOpenCodeConfig(process.cwd());
+    await patchOpenCodeConfig(cwd);
   }
 
   console.log('\n✅ session-vault init complete.');
-  console.log(`   Global config: ${GLOBAL_CONFIG_PATH}`);
+  console.log(`   Global config: ${globalConfigPath}`);
   console.log(`   NOTION_SESSIONS_DB_ID: ${notionSessionsDbId ?? '(not set)'}`);
   console.log(`   NOTION_IDEAS_DB_ID:    ${notionIdeasDbId ?? '(not set)'}`);
   console.log(`   OpenCode integration:  ${configureOpenCode ? 'configured' : 'skipped'}`);
