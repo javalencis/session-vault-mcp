@@ -159,7 +159,7 @@ If configuration fails, run the matching `doctor` command for your mode to see d
 Example page URL:
 
 ```txt
-https://www.notion.so/OpenCode-33c5ec8476df8013b45dcbe087d579f6
+https://www.notion.so/mock-33c5ee8476df8013b45dcbe087d579f6
 ```
 
 Page ID:
