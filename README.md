@@ -225,6 +225,13 @@ Doctor now reports deterministic `pass` / `warn` / `fail` checks including:
 - missing API key / DB IDs without network calls (`notion.missing_key.*`)
 - auth-permission failures (`notion.auth_permission.*`)
 - transport failures with network/proxy guidance (`notion.transport.fetch_failed`)
+- schema drift in `Sessions` / `Ideas`, including Notion workspaces that expose properties through `data_sources`
+
+Notes:
+
+- New databases created with `session-vault setup-notion` include the expected schema automatically.
+- Older or manually connected databases may still warn about real missing properties, for example `Status` in `Sessions`.
+- `update_session` tolerates older `Sessions` databases without `Status`, but `doctor` will still warn so you can align the schema intentionally.
 
 ### `session-vault setup-notion`
 
@@ -310,7 +317,7 @@ Input fields:
 - `decisions?`
 - `nextSteps?`
 - `tags?`
-- `status?`
+- `status?` (optional; ignored automatically when the connected `Sessions` database does not include `Status`)
 - `appendContent?`
 
 ### `capture_idea`
