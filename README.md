@@ -301,6 +301,18 @@ Input fields:
 
 Updates an existing session by `sessionKey` and can append content to the page.
 
+Input fields:
+
+- `sessionKey` or `session_key`
+- `title?`
+- `goal?`
+- `summary?`
+- `decisions?`
+- `nextSteps?`
+- `tags?`
+- `status?`
+- `appendContent?`
+
 ### `capture_idea`
 
 Captures an idea in Notion and can optionally link it to a saved session.

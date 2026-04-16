@@ -89,6 +89,7 @@ describe('save_session tool', () => {
     const structured = result.structuredContent as any;
     expect(structured?.tier).toBe('save');
     expect(structured?.session_key).toMatch(/^sv-\d+-[a-z0-9]{4}$/);
+    expect(structured?.sessionKey).toBe(structured?.session_key);
     expect(structured?.notion_url).toBe('https://notion.so/session-1');
     expect(structured?.warnings).toEqual([]);
   });

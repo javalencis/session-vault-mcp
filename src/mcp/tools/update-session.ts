@@ -4,17 +4,32 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import type { NotionVaultClient } from '../../notion/client.js';
 import type { SessionInput } from '../../types.js';
 
-const inputSchema = z.object({
-  sessionKey: z.string().min(1, 'sessionKey is required'),
-  title: z.string().min(1).optional(),
-  goal: z.string().min(1).optional(),
-  summary: z.string().min(1).optional(),
-  decisions: z.array(z.string().min(1)).optional(),
-  nextSteps: z.array(z.string().min(1)).optional(),
-  tags: z.array(z.string().min(1)).optional(),
-  status: z.string().min(1).optional(),
-  appendContent: z.string().min(1).optional(),
-});
+const inputSchema = z
+  .object({
+    sessionKey: z.string().min(1).optional(),
+    session_key: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
+    goal: z.string().min(1).optional(),
+    summary: z.string().min(1).optional(),
+    decisions: z.array(z.string().min(1)).optional(),
+    nextSteps: z.array(z.string().min(1)).optional(),
+    tags: z.array(z.string().min(1)).optional(),
+    status: z.string().min(1).optional(),
+    appendContent: z.string().min(1).optional(),
+  })
+  .superRefine((input, ctx) => {
+    if (!input.sessionKey && !input.session_key) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['sessionKey'],
+        message: 'sessionKey or session_key is required',
+      });
+    }
+  })
+  .transform(({ session_key, sessionKey, ...rest }) => ({
+    ...rest,
+    sessionKey: sessionKey ?? session_key!,
+  }));
 
 type UpdateSessionInput = z.infer<typeof inputSchema>;
 
@@ -97,6 +112,7 @@ export function registerUpdateSessionTool(server: McpServer, notionClient: Notio
       description: 'Update a session by key and optionally append additional content.',
       inputSchema: {
         sessionKey: z.string(),
+        session_key: z.string().optional(),
         title: z.string().optional(),
         goal: z.string().optional(),
         summary: z.string().optional(),

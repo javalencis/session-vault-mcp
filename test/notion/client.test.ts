@@ -97,6 +97,36 @@ describe('NotionVaultClient', () => {
     expect(updated.id).toBe('session-1-updated');
   });
 
+  it('retries update without status when older database schema lacks Status', async () => {
+    const notion = makeClientMocks();
+    notion.databases.query.mockResolvedValue({ results: [makeSessionPage()] });
+    notion.pages.update
+      .mockRejectedValueOnce(new Error('Status is not a property that exists.'))
+      .mockResolvedValueOnce(makeSessionPage('session-1-updated'));
+
+    const client = new NotionVaultClient(config, notion as any);
+    const updated = await client.updateSession('implement-notion-client', { status: 'done' });
+
+    expect(notion.pages.update).toHaveBeenCalledTimes(2);
+    const retryPayload = notion.pages.update.mock.calls[1]?.[0];
+    expect(retryPayload?.properties?.Status).toBeUndefined();
+    expect(updated.id).toBe('session-1-updated');
+  });
+
+  it('preserves existing fields when partial updates omit them', async () => {
+    const notion = makeClientMocks();
+    notion.databases.query.mockResolvedValue({ results: [makeSessionPage()] });
+    notion.pages.update.mockResolvedValue(makeSessionPage('session-1-updated'));
+
+    const client = new NotionVaultClient(config, notion as any);
+    await client.updateSession('implement-notion-client', { status: 'In Progress' });
+
+    const payload = notion.pages.update.mock.calls[0]?.[0];
+    expect(payload?.properties?.Summary?.rich_text?.[0]?.text?.content).toBe('Summary text');
+    expect(payload?.properties?.Goal?.rich_text?.[0]?.text?.content).toBe('Ship phase 2');
+    expect(payload?.properties?.Status?.select?.name).toBe('In Progress');
+  });
+
   it('returns null when session key is not found', async () => {
     const notion = makeClientMocks();
     notion.databases.query.mockResolvedValue({ results: [] });
@@ -167,11 +197,23 @@ describe('NotionVaultClient', () => {
         properties: {
           Title: { type: 'title' },
           'Session Key': { type: 'rich_text' },
+          Goal: { type: 'rich_text' },
+          Status: { type: 'select' },
+          Summary: { type: 'rich_text' },
+          Decisions: { type: 'rich_text' },
+          'Next Steps': { type: 'rich_text' },
+          Tags: { type: 'multi_select' },
+          Project: { type: 'rich_text' },
+          Source: { type: 'select' },
         },
       })
       .mockResolvedValueOnce({
         properties: {
           Title: { type: 'title' },
+          Description: { type: 'rich_text' },
+          Tags: { type: 'multi_select' },
+          Project: { type: 'rich_text' },
+          'Session Relation': { type: 'relation' },
         },
       });
 

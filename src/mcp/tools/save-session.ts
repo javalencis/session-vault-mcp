@@ -84,6 +84,7 @@ export async function executeSaveSession(
 
     const response = {
       session_key: sessionKey,
+      sessionKey,
       notion_url: created.url,
       quality_score: quality.score,
       tier: quality.tier,

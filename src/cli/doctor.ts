@@ -5,6 +5,7 @@ import { join } from 'node:path';
 
 import { DEFAULT_GLOBAL_CONFIG_PATH } from '../config/load.js';
 import { globalConfigSchema } from '../config/schema.js';
+import { ideasDatabaseSchema, sessionsDatabaseSchema } from '../notion/schemas.js';
 import {
   detectInstallModeFromArgv,
   parseMcpCommandShape,
@@ -52,6 +53,8 @@ interface ParsedGlobalConfig {
   notionSessionsDbId?: string;
   notionIdeasDbId?: string;
 }
+
+type NotionPropertyMap = Record<string, { type?: string }>;
 
 type OpenCodeEntryResult = {
   found: boolean;
@@ -149,6 +152,42 @@ function formatModeLabel(mode: InstallMode | ParsedMcpCommandMode): string {
   return mode === 'global' ? 'global/direct-binary' : mode;
 }
 
+function validateSchemaProperties(
+  label: 'Sessions' | 'Ideas',
+  properties: NotionPropertyMap | undefined,
+  requiredProperties: Array<{ name: string; type: string }>,
+): DoctorCheck {
+  const missingOrInvalid = requiredProperties.flatMap((requirement) => {
+    const property = properties?.[requirement.name];
+
+    if (!property) {
+      return [`missing "${requirement.name}"`];
+    }
+
+    if (property.type !== requirement.type) {
+      return [`"${requirement.name}" type is "${property.type ?? 'unknown'}" expected "${requirement.type}"`];
+    }
+
+    return [];
+  });
+
+  if (missingOrInvalid.length === 0) {
+    return {
+      name: `${label} database schema`,
+      level: 'pass',
+      code: `notion.${label.toLowerCase()}_schema.ok`,
+    };
+  }
+
+  return {
+    name: `${label} database schema`,
+    level: 'warn',
+    code: `notion.${label.toLowerCase()}_schema.mismatch`,
+    detail: missingOrInvalid.join('; '),
+    action: `Run session-vault setup-notion for a fresh schema, or add the missing properties manually in Notion.`,
+  };
+}
+
 export async function runDoctorChecks(options: DoctorOptions = {}): Promise<DoctorCheck[]> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
@@ -225,6 +264,14 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Doct
         level: 'pass',
         code: 'notion.sessions_db.ok',
       });
+      const sessionsDatabase = await notion.databases.retrieve({ database_id: sessionsDbId as string });
+      checks.push(
+        validateSchemaProperties(
+          'Sessions',
+          (sessionsDatabase as { properties?: NotionPropertyMap }).properties,
+          Object.values(sessionsDatabaseSchema).map(({ name, type }) => ({ name, type })),
+        ),
+      );
     }
 
     const ideasValidation = await runNotionValidation({
@@ -240,6 +287,14 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Doct
         level: 'pass',
         code: 'notion.ideas_db.ok',
       });
+      const ideasDatabase = await notion.databases.retrieve({ database_id: ideasDbId as string });
+      checks.push(
+        validateSchemaProperties(
+          'Ideas',
+          (ideasDatabase as { properties?: NotionPropertyMap }).properties,
+          Object.values(ideasDatabaseSchema).map(({ name, type }) => ({ name, type })),
+        ),
+      );
     }
   }
 

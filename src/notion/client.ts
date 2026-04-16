@@ -110,10 +110,33 @@ export class NotionVaultClient {
     }
 
     try {
-      const updated = await this.notion.pages.update({
-        page_id: existing.id,
-        properties: mapSessionInputToNotionProperties({ ...existing, ...updates, sessionKey }),
-      });
+      const nextInput = {
+        ...existing,
+        ...Object.fromEntries(Object.entries(updates).filter(([, value]) => value !== undefined)),
+        sessionKey,
+      };
+
+      const updatePage = async (input: SessionInput) =>
+        this.notion.pages.update({
+          page_id: existing.id,
+          properties: mapSessionInputToNotionProperties(input),
+        });
+
+      let updated;
+
+      try {
+        updated = await updatePage(nextInput);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+
+        // Older Notion databases may not have the optional Status property yet.
+        if (nextInput.status && message.includes('Status is not a property that exists.')) {
+          const { status: _ignored, ...withoutStatus } = nextInput;
+          updated = await updatePage(withoutStatus);
+        } else {
+          throw error;
+        }
+      }
 
       if (appendContent && appendContent.trim()) {
         await this.notion.blocks.children.append({
@@ -187,17 +210,14 @@ export class NotionVaultClient {
     await this.validateDatabase(
       'Sessions',
       this.config.notionSessionsDbId,
-      [
-        { name: sessionsDatabaseSchema.title.name, type: sessionsDatabaseSchema.title.type },
-        { name: sessionsDatabaseSchema.sessionKey.name, type: sessionsDatabaseSchema.sessionKey.type },
-      ],
+      Object.values(sessionsDatabaseSchema).map(({ name, type }) => ({ name, type })),
       warnings,
     );
 
     await this.validateDatabase(
       'Ideas',
       this.config.notionIdeasDbId,
-      [{ name: ideasDatabaseSchema.title.name, type: ideasDatabaseSchema.title.type }],
+      Object.values(ideasDatabaseSchema).map(({ name, type }) => ({ name, type })),
       warnings,
     );
 

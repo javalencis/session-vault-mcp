@@ -6,6 +6,55 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runDoctorChecks } from '../../src/cli/doctor.js';
 
+function makeSessionsProperties(overrides: Record<string, { type?: string }> = {}) {
+  return {
+    Title: { type: 'title' },
+    'Session Key': { type: 'rich_text' },
+    Goal: { type: 'rich_text' },
+    Status: { type: 'select' },
+    Summary: { type: 'rich_text' },
+    Decisions: { type: 'rich_text' },
+    'Next Steps': { type: 'rich_text' },
+    Tags: { type: 'multi_select' },
+    Project: { type: 'rich_text' },
+    Source: { type: 'select' },
+    ...overrides,
+  };
+}
+
+function makeIdeasProperties(overrides: Record<string, { type?: string }> = {}) {
+  return {
+    Title: { type: 'title' },
+    Description: { type: 'rich_text' },
+    Tags: { type: 'multi_select' },
+    Project: { type: 'rich_text' },
+    'Session Relation': { type: 'relation' },
+    ...overrides,
+  };
+}
+
+function makeNotionFactory(
+  sessionsProperties = makeSessionsProperties(),
+  ideasProperties = makeIdeasProperties(),
+) {
+  return () => ({
+    users: { me: vi.fn().mockResolvedValue({}) },
+    databases: {
+      retrieve: vi.fn().mockImplementation(({ database_id }: { database_id: string }) => {
+        if (database_id === 'sessions-db' || database_id === 's') {
+          return Promise.resolve({ properties: sessionsProperties });
+        }
+
+        if (database_id === 'ideas-db' || database_id === 'i') {
+          return Promise.resolve({ properties: ideasProperties });
+        }
+
+        return Promise.resolve({});
+      }),
+    },
+  });
+}
+
 function makeTempDir(): string {
   return mkdtempSync(join(tmpdir(), 'session-vault-doctor-'));
 }
@@ -66,10 +115,7 @@ describe('runDoctorChecks', () => {
       globalConfigPath,
       globalOpenCodeConfigPath: join(cwd, 'missing-global-opencode.json'),
       installMode: 'global',
-      notionFactory: () => ({
-        users: { me: vi.fn().mockResolvedValue({}) },
-        databases: { retrieve: vi.fn().mockResolvedValue({}) },
-      }),
+      notionFactory: makeNotionFactory(),
     });
 
     expect(checks.find((c) => c.name === 'OpenCode MCP command shape')?.level).toBe('pass');
@@ -93,10 +139,7 @@ describe('runDoctorChecks', () => {
       globalConfigPath,
       globalOpenCodeConfigPath: join(cwd, 'missing-global-opencode.json'),
       installMode: 'source',
-      notionFactory: () => ({
-        users: { me: vi.fn().mockResolvedValue({}) },
-        databases: { retrieve: vi.fn().mockResolvedValue({}) },
-      }),
+      notionFactory: makeNotionFactory(),
     });
 
     const mcpCheck = checks.find((c) => c.name === 'OpenCode MCP command shape');
@@ -114,10 +157,7 @@ describe('runDoctorChecks', () => {
     writeOpenCodeConfig(cwdWarn, ['npx', '-y', 'session-vault-serve']);
     writeOpenCodeConfig(cwdFail, ['foo']);
 
-    const notionFactory = () => ({
-      users: { me: vi.fn().mockResolvedValue({}) },
-      databases: { retrieve: vi.fn().mockResolvedValue({}) },
-    });
+    const notionFactory = makeNotionFactory();
 
     const warnChecks = await runDoctorChecks({
       cwd: cwdWarn,
@@ -205,6 +245,40 @@ describe('runDoctorChecks', () => {
     expect(ideasCheck?.code).toBe('notion.missing_key.NOTION_IDEAS_DB_ID');
     expect(ideasCheck?.action).toContain('Set NOTION_IDEAS_DB_ID');
     expect(dbRetrieve).not.toHaveBeenCalled();
+  });
+
+  it('warns when Notion database schema is missing expected properties', async () => {
+    const cwd = makeTempDir();
+    createdDirs.push(cwd);
+
+    const globalConfigPath = writeGlobalConfig(cwd, {
+      notionApiKey: 'global-key',
+      notionSessionsDbId: 'sessions-db',
+      notionIdeasDbId: 'ideas-db',
+    });
+    writeOpenCodeConfig(cwd, ['session-vault-serve']);
+
+    const checks = await runDoctorChecks({
+      cwd,
+      env: {},
+      globalConfigPath,
+      globalOpenCodeConfigPath: join(cwd, 'missing-global-opencode.json'),
+      installMode: 'global',
+      notionFactory: makeNotionFactory(
+        makeSessionsProperties({ Status: undefined as never }),
+        makeIdeasProperties({ Description: undefined as never }),
+      ),
+    });
+
+    const sessionsSchema = checks.find((c) => c.name === 'Sessions database schema');
+    const ideasSchema = checks.find((c) => c.name === 'Ideas database schema');
+
+    expect(sessionsSchema?.level).toBe('warn');
+    expect(sessionsSchema?.code).toBe('notion.sessions_schema.mismatch');
+    expect(sessionsSchema?.detail).toContain('missing "Status"');
+    expect(ideasSchema?.level).toBe('warn');
+    expect(ideasSchema?.code).toBe('notion.ideas_schema.mismatch');
+    expect(ideasSchema?.detail).toContain('missing "Description"');
   });
 
   it('classifies auth and transport failures with deterministic doctor guidance', async () => {
