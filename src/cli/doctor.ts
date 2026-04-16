@@ -37,6 +37,9 @@ type NotionApiLike = {
   databases: {
     retrieve: (payload: { database_id: string }) => Promise<unknown>;
   };
+  dataSources?: {
+    retrieve: (payload: { data_source_id: string }) => Promise<unknown>;
+  };
 };
 
 interface DoctorOptions {
@@ -188,6 +191,28 @@ function validateSchemaProperties(
   };
 }
 
+async function resolveSchemaProperties(notion: NotionApiLike, databaseId: string): Promise<NotionPropertyMap | undefined> {
+  const database = (await notion.databases.retrieve({ database_id: databaseId })) as {
+    properties?: NotionPropertyMap;
+    data_sources?: Array<{ id?: string }>;
+  };
+
+  if (database.properties && Object.keys(database.properties).length > 0) {
+    return database.properties;
+  }
+
+  const dataSourceId = database.data_sources?.[0]?.id;
+  if (!dataSourceId || !notion.dataSources?.retrieve) {
+    return database.properties;
+  }
+
+  const dataSource = (await notion.dataSources.retrieve({ data_source_id: dataSourceId })) as {
+    properties?: NotionPropertyMap;
+  };
+
+  return dataSource.properties;
+}
+
 export async function runDoctorChecks(options: DoctorOptions = {}): Promise<DoctorCheck[]> {
   const cwd = options.cwd ?? process.cwd();
   const env = options.env ?? process.env;
@@ -264,11 +289,11 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Doct
         level: 'pass',
         code: 'notion.sessions_db.ok',
       });
-      const sessionsDatabase = await notion.databases.retrieve({ database_id: sessionsDbId as string });
+      const sessionsProperties = await resolveSchemaProperties(notion, sessionsDbId as string);
       checks.push(
         validateSchemaProperties(
           'Sessions',
-          (sessionsDatabase as { properties?: NotionPropertyMap }).properties,
+          sessionsProperties,
           Object.values(sessionsDatabaseSchema).map(({ name, type }) => ({ name, type })),
         ),
       );
@@ -287,11 +312,11 @@ export async function runDoctorChecks(options: DoctorOptions = {}): Promise<Doct
         level: 'pass',
         code: 'notion.ideas_db.ok',
       });
-      const ideasDatabase = await notion.databases.retrieve({ database_id: ideasDbId as string });
+      const ideasProperties = await resolveSchemaProperties(notion, ideasDbId as string);
       checks.push(
         validateSchemaProperties(
           'Ideas',
-          (ideasDatabase as { properties?: NotionPropertyMap }).properties,
+          ideasProperties,
           Object.values(ideasDatabaseSchema).map(({ name, type }) => ({ name, type })),
         ),
       );
